@@ -500,6 +500,10 @@
     #shapeDiagram { width: 260px !important; height: 130px !important; }
     #dimPrintSummary { display: none !important; }
 
+    /* Radio buttons — lighten unselected for print */
+    .radio-opt label { background: #f8fafc !important; border-color: #e2e8f0 !important; color: #cbd5e1 !important; }
+    .radio-opt input:checked + label { background: #eff6ff !important; border-color: #3b82f6 !important; color: #1d4ed8 !important; }
+
     /* Step numbers */
     .step { color: #fff !important; }
   }
@@ -653,7 +657,7 @@
       <div class="panel-body">
 
         <div class="field-group">
-          <div class="field-label">Peak Design Flow <span class="unit">gpm</span></div>
+          <div class="field-label">Pump Design Flow <span class="unit">gpm</span></div>
           <input type="number" id="flowGpm" value="1200" min="0" step="1" oninput="calc()" placeholder="Required">
           <div class="field-error" id="flowGpm-err"><span>⚠</span> Required</div>
         </div>
@@ -756,9 +760,9 @@
           <span class="ban-icon">⚠</span>
           <span id="bannerMsg">Please complete all required fields to see results.</span>
         </div>
-        <div class="summary-cards">
+        <div class="summary-cards" id="summaryCards">
           <div class="sum-card">
-            <div class="sum-label">Startup Depth</div>
+            <div class="sum-label" id="label-startup">Startup Depth</div>
             <div class="sum-value" id="res-startup">—</div>
             <div class="sum-unit">feet</div>
           </div>
@@ -766,6 +770,13 @@
             <div class="sum-label">Shutoff Depth</div>
             <div class="sum-value" id="res-shutoff">—</div>
             <div class="sum-unit">feet</div>
+          </div>
+          <!-- Lag card — only visible when numPumps >= 2 -->
+          <div class="sum-card" id="lag-card" style="display:none; background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(59,130,246,0.06)); border-color:rgba(139,92,246,0.3);">
+            <div class="sum-label">Lag Startup Depth</div>
+            <div class="sum-value" id="res-lag" style="color:#a78bfa;">—</div>
+            <div class="sum-unit">feet</div>
+            <div id="lag-overtop-warn" style="display:none; font-family:var(--mono); font-size:9px; color:#ef4444; margin-top:4px;">⚠ Exceeds well depth</div>
           </div>
         </div>
 
@@ -803,7 +814,7 @@
         <!-- Diagram -->
         <div class="diagram-wrap" style="flex-direction:column; align-items:center; gap:4px;">
           <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#64748b; letter-spacing:0.08em; text-transform:uppercase;">Wet Well Cross Section</div>
-          <svg id="wellDiagram" width="340" height="300" viewBox="0 0 340 300"></svg>
+          <svg id="wellDiagram" width="380" height="300" viewBox="0 0 380 300"></svg>
         </div>
 
       </div>
@@ -1003,17 +1014,18 @@ function calc() {
   }
 
   // --- Calculations ---
-  const flowCfs = flowGpm / 448.831;
   const pumpCount = Math.max(1, numPumps);
-  const flowPerPumpCfs = flowCfs / pumpCount;
-  const flowPerPumpGpm = flowGpm / pumpCount;
+  const flowPerPumpCfs = flowGpm / 448.831;           // per pump, as entered
+  const flowPerPumpGpm = flowGpm;                      // per pump
+  const totalFlowGpm = flowGpm * pumpCount;            // total at max operation
+  const totalFlowCfs = flowPerPumpCfs * pumpCount;
   const inletFt = inletInch / 12;
 
   let aStation = isRound
     ? Math.PI * Math.pow(dim1 / 2, 2)
     : dim1 * dim2;
 
-  const vMinGal = (cycleMin * flowGpm) / 4;
+  const vMinGal = (cycleMin * totalFlowGpm) / 4;
   const vMinFt3 = vMinGal / 7.48052;
   const hMin = vMinFt3 / aStation;
   const aPipe = Math.PI * Math.pow(inletFt / 2, 2);
@@ -1023,6 +1035,11 @@ function calc() {
   const startup = hX + hMin;
 
   // Well depth check — now that startup is known
+  const hasDepth = wellDepth && !isNaN(wellDepth) && wellDepth > 0;
+  const isMultiPump = pumpCount >= 2;
+  const lagStartup = startup + hMin;
+  const lagOvertops = hasDepth && lagStartup > wellDepth;
+
   const wdWarn = document.getElementById('wellDepth-warn');
   const wdInput = document.getElementById('wellDepth');
   if (wellDepth && !isNaN(wellDepth) && wellDepth > 0) {
@@ -1031,27 +1048,49 @@ function calc() {
       wdWarn.style.background = 'rgba(239,68,68,0.10)';
       wdWarn.style.border = '1px solid rgba(239,68,68,0.35)';
       wdWarn.style.color = '#ef4444';
-      wdWarn.innerHTML = '⚠ Startup depth <strong>' + fmt(startup) + ' ft</strong> exceeds well depth of <strong>' + fmt(wellDepth) + ' ft</strong>. Well is too shallow.';
+      wdWarn.innerHTML = '⚠ Lead startup depth <strong>' + fmt(startup) + ' ft</strong> exceeds well depth of <strong>' + fmt(wellDepth) + ' ft</strong>. Well is too shallow.';
       wdInput.style.borderColor = 'var(--danger)';
     } else {
       const margin = wellDepth - startup;
+      const lagFits = lagStartup <= wellDepth;
       wdWarn.style.display = 'block';
-      wdWarn.style.background = 'rgba(16,185,129,0.08)';
-      wdWarn.style.border = '1px solid rgba(16,185,129,0.3)';
-      wdWarn.style.color = '#10b981';
-      wdWarn.innerHTML = '✓ Startup depth fits within well. <strong>' + fmt(margin) + ' ft</strong> of freeboard remaining.';
-      wdInput.style.borderColor = 'var(--ok)';
+      if (isMultiPump && !lagFits) {
+        wdWarn.style.background = 'rgba(245,158,11,0.10)';
+        wdWarn.style.border = '1px solid rgba(245,158,11,0.35)';
+        wdWarn.style.color = '#d97706';
+        wdWarn.innerHTML = '⚠ Lead startup fits within well (<strong>' + fmt(margin) + ' ft</strong> of freeboard), but lag startup depth <strong>' + fmt(lagStartup) + ' ft</strong> exceeds well depth.';
+      } else {
+        wdWarn.style.background = 'rgba(16,185,129,0.08)';
+        wdWarn.style.border = '1px solid rgba(16,185,129,0.3)';
+        wdWarn.style.color = '#10b981';
+        wdWarn.innerHTML = isMultiPump
+          ? '✓ Lead startup fits within well. <strong>' + fmt(margin) + ' ft</strong> of freeboard above lead. Lag startup also fits.'
+          : '✓ Startup depth fits within well. <strong>' + fmt(margin) + ' ft</strong> of freeboard remaining.';
+      }
+      wdInput.style.borderColor = (isMultiPump && !lagFits) ? 'var(--warn)' : 'var(--ok)';
     }
   } else {
     wdWarn.style.display = 'none';
     wdInput.style.borderColor = '';
   }
 
+  // Lead/lag logic — must come after calculations
+  document.getElementById('label-startup').textContent = isMultiPump ? 'Lead Startup Depth' : 'Startup Depth';
+  const lagCard = document.getElementById('lag-card');
+  const lagOvertop = document.getElementById('lag-overtop-warn');
+  if (isMultiPump) {
+    lagCard.style.display = 'block';
+    document.getElementById('res-lag').textContent = fmt(lagStartup);
+    lagOvertop.style.display = lagOvertops ? 'block' : 'none';
+  } else {
+    lagCard.style.display = 'none';
+  }
+
   // --- UPDATE UI ---
   document.getElementById('res-startup').textContent = fmt(startup);
   document.getElementById('res-shutoff').textContent = fmt(hX);
   document.getElementById('res-flowPerPump').textContent = fmt(flowPerPumpCfs, 3);
-  document.getElementById('res-flowPerPumpGpm').textContent = fmt(flowPerPumpGpm, 1) + ' gpm';
+  document.getElementById('res-flowPerPumpGpm').textContent = fmt(flowPerPumpGpm, 1) + ' gpm/pump · ' + fmt(totalFlowGpm, 1) + ' gpm total';
   document.getElementById('res-area').textContent = fmt(aStation);
   document.getElementById('res-vmin').textContent = fmt(vMinFt3);
   document.getElementById('res-vminGal').textContent = fmt(vMinGal, 1) + ' gal';
@@ -1065,7 +1104,7 @@ function calc() {
   else { vBadge.className = 'velocity-badge ok'; vBadge.textContent = '● 4–7 fps ✓'; }
 
   document.getElementById('cb-tmin').textContent = fmt(cycleMin, 1) + ' min';
-  document.getElementById('cb-qout').textContent = fmt(flowGpm, 1) + ' gpm';
+  document.getElementById('cb-qout').textContent = fmt(totalFlowGpm, 1) + ' gpm (' + pumpCount + ' pump' + (pumpCount > 1 ? 's' : '') + ' × ' + fmt(flowPerPumpGpm, 1) + ' gpm)';
   document.getElementById('cb-vmin').textContent = fmt(vMinFt3) + ' ft³ (' + fmt(vMinGal, 1) + ' gal)';
   document.getElementById('cb-area').textContent = fmt(aStation) + ' ft²';
   document.getElementById('cb-vmin2').textContent = fmt(vMinFt3) + ' ft³';
@@ -1078,7 +1117,7 @@ function calc() {
   document.getElementById('cb-hx').textContent = fmt(hX) + ' ft';
   document.getElementById('cb-startup').textContent = fmt(startup) + ' ft';
 
-  drawDiagram(hX, hMin, startup, dim1, isRound, wellDepth || 0);
+  drawDiagram(hX, hMin, startup, dim1, isRound, wellDepth || 0, isMultiPump ? lagStartup : null);
 }
 
 function clearResults() {
@@ -1087,35 +1126,40 @@ function clearResults() {
     'cb-tmin','cb-qout','cb-vmin','cb-area','cb-vmin2','cb-hmin','cb-diam',
     'cb-apipe','cb-qpump','cb-vel','cb-fd','cb-hx','cb-startup'];
   ids.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
-  drawDiagram(0, 0, 0, 0, true, 0);
+  drawDiagram(0, 0, 0, 0, true, 0, null);
 }
 
-function drawDiagram(hx, hmin, startup, dim1, isRound, wellDepth) {
+function drawDiagram(hx, hmin, startup, dim1, isRound, wellDepth, lagStartup) {
   const svg = document.getElementById('wellDiagram');
-  const W = 340, H = 300;
+  const W = 380, H = 300;
   const wellW = 120;
   const wellH = 210;
   const wellX = (W - wellW) / 2 + 10;
   const wellY = 45;
   const wellBottom = wellY + wellH;
 
-  // Scale: use well depth if provided, otherwise startup * 1.2
   const hasDepth = wellDepth && wellDepth > 0;
-  const totalDepth = hasDepth ? Math.max(wellDepth, startup) * 1.1 : startup * 1.2;
+  const hasLag = lagStartup && lagStartup > 0;
+  const totalDepth = hasDepth
+    ? Math.max(wellDepth, hasLag ? lagStartup : startup) * 1.1
+    : (hasLag ? Math.max(startup, lagStartup) : startup) * 1.2;
   const scale = wellH / totalDepth;
   const hxPx = hx * scale;
   const startupPx = startup * scale;
+  const lagPx = hasLag ? lagStartup * scale : 0;
   const wellDepthPx = hasDepth ? wellDepth * scale : 0;
 
   const hxColor = '#ef4444';
   const startupColor = '#22d3ee';
+  const lagColor = '#a78bfa';
   const submColor = '#f59e0b';
-  const freeboardColor = startup > wellDepth && hasDepth ? '#ef4444' : '#10b981';
+  const freeboardColor = hasDepth && startup > wellDepth ? '#ef4444' : '#10b981';
   const wallColor = '#2a3050';
   const textColor = '#94a3b8';
-
-  // Well top — if depth given, show it; otherwise use full wellH
   const wellTopY = hasDepth ? wellBottom - wellDepthPx : wellY;
+
+  // Smart label positioning — push DEPTH label to far left to avoid right-side overlap
+  const depthLabelX = wellX - 52;
 
   svg.innerHTML = `
     <defs>
@@ -1137,23 +1181,17 @@ function drawDiagram(hx, hmin, startup, dim1, isRound, wellDepth) {
       </linearGradient>
     </defs>
 
-    <!-- Well walls — height based on depth if provided -->
+    <!-- Well walls -->
     <rect x="${wellX}" y="${wellTopY}" width="4" height="${wellBottom - wellTopY}" fill="${wallColor}" rx="2"/>
     <rect x="${wellX + wellW - 4}" y="${wellTopY}" width="4" height="${wellBottom - wellTopY}" fill="${wallColor}" rx="2"/>
     <rect x="${wellX}" y="${wellBottom}" width="${wellW}" height="4" fill="${wallColor}" rx="2"/>
-
-    <!-- Well top cap -->
     ${hasDepth ? `<rect x="${wellX}" y="${wellTopY - 4}" width="${wellW}" height="4" fill="${wallColor}" rx="2"/>` : ''}
 
-    <!-- Freeboard zone (above startup to top of well) -->
-    ${hasDepth && wellDepthPx > startupPx ? `
-      <rect x="${wellX + 4}" y="${wellTopY}" width="${wellW - 8}" height="${wellDepthPx - startupPx}" fill="url(#freeboardGrad)"/>
-    ` : ''}
+    <!-- Freeboard zone -->
+    ${hasDepth && wellDepthPx > startupPx ? `<rect x="${wellX + 4}" y="${wellTopY}" width="${wellW - 8}" height="${wellDepthPx - startupPx}" fill="url(#freeboardGrad)"/>` : ''}
 
-    <!-- Overflow zone (startup exceeds well depth) -->
-    ${hasDepth && startupPx > wellDepthPx ? `
-      <rect x="${wellX + 4}" y="${wellBottom - startupPx}" width="${wellW - 8}" height="${startupPx - wellDepthPx}" fill="url(#overflowGrad)"/>
-    ` : ''}
+    <!-- Overflow zone -->
+    ${hasDepth && startupPx > wellDepthPx ? `<rect x="${wellX + 4}" y="${wellBottom - startupPx}" width="${wellW - 8}" height="${startupPx - wellDepthPx}" fill="url(#overflowGrad)"/>` : ''}
 
     <!-- Dim label -->
     <text x="${wellX + wellW/2}" y="${wellTopY - 12}" text-anchor="middle" fill="${textColor}" font-size="10" font-family="IBM Plex Mono">${isRound ? 'Ø ' : ''}${dim1 > 0 ? dim1.toFixed(1) : '?'} ft</text>
@@ -1161,38 +1199,51 @@ function drawDiagram(hx, hmin, startup, dim1, isRound, wellDepth) {
     <line x1="${wellX + 4}" y1="${wellTopY - 9}" x2="${wellX + 4}" y2="${wellTopY - 3}" stroke="#475569" stroke-width="0.8"/>
     <line x1="${wellX + wellW - 4}" y1="${wellTopY - 9}" x2="${wellX + wellW - 4}" y2="${wellTopY - 3}" stroke="#475569" stroke-width="0.8"/>
 
-    <!-- Min submergence zone (HX) — amber fill at bottom -->
+    <!-- Min submergence zone (HX) -->
     ${hxPx > 0 ? `<rect x="${wellX + 4}" y="${wellBottom - hxPx}" width="${wellW - 8}" height="${hxPx}" fill="url(#submGrad)"/>` : ''}
 
-    <!-- Water storage fill (above HX up to startup) -->
+    <!-- Water storage fill -->
     ${startupPx > hxPx ? `<rect x="${wellX + 4}" y="${wellBottom - startupPx}" width="${wellW - 8}" height="${startupPx - hxPx}" fill="url(#waterGrad)" opacity="0.85"/>` : ''}
 
-    <!-- Well depth line & label (right side) -->
+    <!-- Well depth — vertical bar on LEFT side, further out to clear HMIN brace -->
     ${hasDepth ? `
-      <line x1="${wellX + wellW + 6}" y1="${wellTopY}" x2="${wellX + wellW + 6}" y2="${wellBottom}" stroke="${freeboardColor}" stroke-width="1" stroke-dasharray="3,2"/>
-      <text x="${wellX + wellW + 24}" y="${wellTopY + (wellBottom - wellTopY)/2 + 4}" fill="${freeboardColor}" font-size="9" font-family="IBM Plex Mono">DEPTH</text>
-      <text x="${wellX + wellW + 24}" y="${wellTopY + (wellBottom - wellTopY)/2 + 15}" fill="${freeboardColor}" font-size="9" font-family="IBM Plex Mono">${wellDepth.toFixed(2)} ft</text>
+      <line x1="${wellX - 58}" y1="${wellTopY}" x2="${wellX - 58}" y2="${wellBottom}" stroke="${freeboardColor}" stroke-width="1" stroke-dasharray="3,2"/>
+      <line x1="${wellX - 55}" y1="${wellTopY}" x2="${wellX - 61}" y2="${wellTopY}" stroke="${freeboardColor}" stroke-width="1"/>
+      <line x1="${wellX - 55}" y1="${wellBottom}" x2="${wellX - 61}" y2="${wellBottom}" stroke="${freeboardColor}" stroke-width="1"/>
+      <text x="${wellX - 64}" y="${wellTopY + (wellBottom - wellTopY)/2 - 4}" text-anchor="end" fill="${freeboardColor}" font-size="8" font-family="IBM Plex Mono">DEPTH</text>
+      <text x="${wellX - 64}" y="${wellTopY + (wellBottom - wellTopY)/2 + 7}" text-anchor="end" fill="${freeboardColor}" font-size="8" font-family="IBM Plex Mono">${wellDepth.toFixed(2)} ft</text>
     ` : ''}
 
     <!-- Shutoff line (HX) -->
-    <line x1="${wellX - 38}" y1="${wellBottom - hxPx}" x2="${wellX + wellW + 20}" y2="${wellBottom - hxPx}" stroke="${hxColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <line x1="${wellX + wellW}" y1="${wellBottom - hxPx}" x2="${wellX + wellW + 20}" y2="${wellBottom - hxPx}" stroke="${hxColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <line x1="${wellX}" y1="${wellBottom - hxPx}" x2="${wellX - 38}" y2="${wellBottom - hxPx}" stroke="${hxColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
     <circle cx="${wellX + wellW/2}" cy="${wellBottom - hxPx}" r="3" fill="${hxColor}"/>
     <text x="${wellX + wellW + 24}" y="${wellBottom - hxPx + 4}" fill="${hxColor}" font-size="9" font-family="IBM Plex Mono">SHUTOFF</text>
     <text x="${wellX + wellW + 24}" y="${wellBottom - hxPx + 15}" fill="${hxColor}" font-size="9" font-family="IBM Plex Mono">${isFinite(hx) ? hx.toFixed(2) : '—'} ft</text>
 
-    <!-- Startup line -->
-    <line x1="${wellX - 38}" y1="${wellBottom - startupPx}" x2="${wellX + wellW + 20}" y2="${wellBottom - startupPx}" stroke="${startupColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <!-- Lead startup line -->
+    <line x1="${wellX + wellW}" y1="${wellBottom - startupPx}" x2="${wellX + wellW + 20}" y2="${wellBottom - startupPx}" stroke="${startupColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <line x1="${wellX}" y1="${wellBottom - startupPx}" x2="${wellX - 38}" y2="${wellBottom - startupPx}" stroke="${startupColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
     <circle cx="${wellX + wellW/2}" cy="${wellBottom - startupPx}" r="3" fill="${startupColor}"/>
-    <text x="${wellX + wellW + 24}" y="${wellBottom - startupPx + 4}" fill="${startupColor}" font-size="9" font-family="IBM Plex Mono">STARTUP</text>
+    <text x="${wellX + wellW + 24}" y="${wellBottom - startupPx + 4}" fill="${startupColor}" font-size="9" font-family="IBM Plex Mono">${hasLag ? 'LEAD' : 'STARTUP'}</text>
     <text x="${wellX + wellW + 24}" y="${wellBottom - startupPx + 15}" fill="${startupColor}" font-size="9" font-family="IBM Plex Mono">${isFinite(startup) ? startup.toFixed(2) : '—'} ft</text>
 
-    <!-- Left brace: HX (min submergence) -->
+    <!-- Lag startup line (only if multi-pump) -->
+    ${hasLag ? `
+      <line x1="${wellX + wellW}" y1="${wellBottom - lagPx}" x2="${wellX + wellW + 20}" y2="${wellBottom - lagPx}" stroke="${lagColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <line x1="${wellX}" y1="${wellBottom - lagPx}" x2="${wellX - 38}" y2="${wellBottom - lagPx}" stroke="${lagColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <circle cx="${wellX + wellW/2}" cy="${wellBottom - lagPx}" r="3" fill="${lagColor}"/>
+      <text x="${wellX + wellW + 24}" y="${wellBottom - lagPx + 4}" fill="${lagColor}" font-size="9" font-family="IBM Plex Mono">LAG</text>
+      <text x="${wellX + wellW + 24}" y="${wellBottom - lagPx + 15}" fill="${lagColor}" font-size="9" font-family="IBM Plex Mono">${lagStartup.toFixed(2)} ft</text>
+    ` : ''}
+
+    <!-- Left brace: HX -->
     <line x1="${wellX - 12}" y1="${wellBottom}" x2="${wellX - 12}" y2="${wellBottom - hxPx}" stroke="${submColor}" stroke-width="1.2"/>
     <line x1="${wellX - 9}" y1="${wellBottom}" x2="${wellX - 15}" y2="${wellBottom}" stroke="${submColor}" stroke-width="1.2"/>
     <line x1="${wellX - 9}" y1="${wellBottom - hxPx}" x2="${wellX - 15}" y2="${wellBottom - hxPx}" stroke="${submColor}" stroke-width="1.2"/>
     <text x="${wellX - 18}" y="${wellBottom - hxPx/2 + 3}" text-anchor="end" fill="${submColor}" font-size="8" font-family="IBM Plex Mono">HX</text>
 
-    <!-- Left brace: HMIN (storage depth) -->
+    <!-- Left brace: HMIN -->
     <line x1="${wellX - 26}" y1="${wellBottom - hxPx}" x2="${wellX - 26}" y2="${wellBottom - startupPx}" stroke="#64748b" stroke-width="1.2"/>
     <line x1="${wellX - 23}" y1="${wellBottom - hxPx}" x2="${wellX - 29}" y2="${wellBottom - hxPx}" stroke="#64748b" stroke-width="1.2"/>
     <line x1="${wellX - 23}" y1="${wellBottom - startupPx}" x2="${wellX - 29}" y2="${wellBottom - startupPx}" stroke="#64748b" stroke-width="1.2"/>
