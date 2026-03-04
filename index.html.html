@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WellSpec — Wet Well Sizing Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2336;
+    --border: #2a3050;
+    --accent: #3b82f6;
+    --accent2: #22d3ee;
+    --warn: #f59e0b;
+    --ok: #10b981;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --label: #94a3b8;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent2);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--muted); }
+
+  .header-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+
+  .print-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--label);
+    padding: 6px 16px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .print-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .panel-header .step {
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .panel-header h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--label);
+  }
+
+  .panel-body { padding: 20px; }
+
+  .field-group { margin-bottom: 16px; }
+
+  .field-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .field-label .unit {
+    color: var(--accent2);
+    font-size: 10px;
+  }
+
+  .field-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  input[type="number"], select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+    -moz-appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  input[type="number"]:focus, select:focus {
+    border-color: var(--accent);
+  }
+
+  select option { background: var(--surface2); }
+
+  .radio-group {
+    display: flex;
+    gap: 8px;
+  }
+
+  .radio-opt {
+    flex: 1;
+    position: relative;
+  }
+
+  .radio-opt input { display: none; }
+
+  .radio-opt label {
+    display: block;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    text-align: center;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+
+  .radio-opt input:checked + label {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(59,130,246,0.08);
+  }
+
+  /* Results panel */
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .result-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .result-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--accent);
+  }
+
+  .result-card.highlight::before { background: var(--accent2); }
+  .result-card.warn-card::before { background: var(--warn); }
+
+  .result-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+
+  .result-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .result-unit {
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: 4px;
+  }
+
+  .result-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* Velocity indicator */
+  .velocity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-top: 6px;
+  }
+  .velocity-badge.ok { background: rgba(16,185,129,0.15); color: var(--ok); }
+  .velocity-badge.warn { background: rgba(245,158,11,0.15); color: var(--warn); }
+  .velocity-badge.danger { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+  /* Calc breakdown */
+  .calc-section {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 4px;
+  }
+
+  .calc-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+
+  .calc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(42,48,80,0.5);
+    gap: 12px;
+  }
+
+  .calc-row:last-child { border-bottom: none; }
+
+  .calc-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--label);
+    flex: 1;
+  }
+
+  .calc-formula {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .calc-val {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* Diagram */
+  .diagram-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 20px 0 8px;
+  }
+
+  svg text { font-family: 'IBM Plex Mono', monospace; }
+
+  /* Summary highlight cards */
+  .summary-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .sum-card {
+    background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(34,211,238,0.06));
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .sum-card.shutoff {
+    background: linear-gradient(135deg, rgba(239,68,68,0.1), rgba(245,158,11,0.06));
+    border-color: rgba(239,68,68,0.3);
+  }
+
+  .sum-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .sum-value {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--accent2);
+    line-height: 1;
+  }
+
+  .sum-card.shutoff .sum-value { color: var(--danger); }
+
+  .sum-unit {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: var(--mono);
+  }
+
+  /* Print styles */
+  @media print {
+    @page { margin: 1.2cm 1.4cm; size: A4 portrait; }
+
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    body { background: #fff !important; color: #000 !important; font-size: 11px; }
+
+    header {
+      background: #f1f5f9 !important;
+      border-color: #cbd5e1 !important;
+      padding: 10px 20px;
+    }
+    .logo { color: #0284c7 !important; }
+    .header-title { color: #0f172a !important; font-size: 13px; }
+    .print-btn { display: none !important; }
+
+    /* Single column stacked layout for print */
+    main {
+      display: block !important;
+      padding: 12px 0 !important;
+      max-width: 100% !important;
+    }
+
+    /* Stack all panels vertically */
+    main > div { display: block !important; width: 100% !important; }
+
+    .panel {
+      background: #fff !important;
+      border: 1px solid #e2e8f0 !important;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .panel-header {
+      background: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+      padding: 8px 16px;
+    }
+    .panel-header h2 { color: #475569 !important; font-size: 11px; }
+    .panel-header .step { background: #3b82f6 !important; width:18px; height:18px; font-size:9px; }
+
+    .panel-body { padding: 14px 16px !important; }
+
+    /* Project info grid */
+    .panel-body > div[style*="grid"] { gap: 8px !important; }
+
+    /* Inputs render as static text-like fields */
+    input, select {
+      background: #f8fafc !important;
+      color: #0f172a !important;
+      border-color: #e2e8f0 !important;
+      font-size: 11px !important;
+      padding: 5px 8px !important;
+    }
+
+    /* Field labels */
+    .field-label { font-size: 9px !important; margin-bottom: 3px !important; }
+    .field-group { margin-bottom: 10px !important; }
+    .note-text, .field-error { display: none !important; }
+    .divider { margin: 10px 0 !important; }
+
+    /* Radio buttons */
+    .radio-group { gap: 6px !important; }
+    .radio-opt label { padding: 5px 10px !important; font-size: 10px !important; }
+
+    /* Dim section */
+    .dim-section { padding: 10px !important; background: #eff6ff !important; border-color: #bfdbfe !important; }
+    .dim-section-title { font-size: 9px !important; margin-bottom: 8px !important; color: #1d4ed8 !important; }
+    .dim-fields { gap: 8px !important; margin-top: 12px !important; }
+    .dim-input-icon { color: #64748b !important; }
+    /* Force SVG text colours to be visible on white background */
+    #shapeDiagram text { fill: #0f172a !important; }
+    #shapeDiagram text[fill="#22d3ee"] { fill: #0284c7 !important; }
+    #shapeDiagram text[fill="#64748b"] { fill: #64748b !important; }
+    #shapeDiagram text[fill="#e2e8f0"] { fill: #0f172a !important; }
+    #shapeDiagram .dim-val-text { fill: #0f172a !important; }
+
+    /* Results summary cards */
+    .summary-cards { gap: 8px !important; margin-bottom: 12px !important; }
+    .sum-card {
+      background: #eff6ff !important;
+      border-color: #bfdbfe !important;
+      padding: 10px !important;
+    }
+    .sum-card.shutoff { background: #fef2f2 !important; border-color: #fecaca !important; }
+    .sum-value { font-size: 20px !important; color: #1d4ed8 !important; }
+    .sum-card.shutoff .sum-value { color: #dc2626 !important; }
+    .sum-label { font-size: 9px !important; }
+    .sum-unit { font-size: 10px !important; }
+
+    /* Result cards grid */
+    .results-grid { gap: 8px !important; margin-bottom: 12px !important; }
+    .result-card { background: #f8fafc !important; border-color: #e2e8f0 !important; padding: 8px 12px !important; }
+    .result-value { font-size: 16px !important; color: #0f172a !important; }
+    .result-label { font-size: 9px !important; }
+    .result-sub { font-size: 9px !important; }
+    .velocity-badge { font-size: 9px !important; }
+
+    /* Incomplete banner — hide if results are showing */
+    .incomplete-banner { display: none !important; }
+
+    /* Diagram — keep it reasonably sized */
+    .diagram-wrap { padding: 8px 0 4px !important; }
+    #wellDiagram { width: 280px !important; height: 240px !important; }
+
+    /* Calc breakdown */
+    .calc-section { padding-top: 10px !important; margin-top: 2px !important; }
+    .calc-title { font-size: 9px !important; margin-bottom: 6px !important; }
+    .calc-row { padding: 3px 0 !important; }
+    .calc-name { font-size: 10px !important; color: #475569 !important; }
+    .calc-formula { font-size: 9px !important; color: #94a3b8 !important; }
+    .calc-val { font-size: 10px !important; color: #0f172a !important; }
+
+    /* Shape diagram in inputs — full size for print to match screen */
+    .dim-diagram { margin-top: 8px !important; }
+    #shapeDiagram { width: 260px !important; height: 130px !important; }
+    #dimPrintSummary { display: none !important; }
+
+    /* Step numbers */
+    .step { color: #fff !important; }
+  }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .note-text {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-top: 8px;
+  }
+
+  /* Validation */
+  input.invalid {
+    border-color: var(--danger) !important;
+    background: rgba(239,68,68,0.07) !important;
+    box-shadow: 0 0 0 2px rgba(239,68,68,0.18);
+  }
+
+  .field-error {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--danger);
+    margin-top: 5px;
+    display: none;
+    align-items: center;
+    gap: 4px;
+  }
+  .field-error.show { display: flex; }
+
+  .incomplete-banner {
+    display: none;
+    background: rgba(239,68,68,0.10);
+    border: 1px solid rgba(239,68,68,0.45);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #fca5a5;
+    align-items: center;
+    gap: 8px;
+  }
+  .incomplete-banner.show { display: flex; }
+  .incomplete-banner .ban-icon { font-size: 14px; flex-shrink: 0; }
+
+  /* Dimension section styling */
+  .dim-section {
+    background: rgba(59,130,246,0.05);
+    border: 1px solid rgba(59,130,246,0.18);
+    border-radius: 6px;
+    padding: 14px;
+    margin-top: 4px;
+  }
+
+  .dim-section-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dim-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .dim-fields .field-group { margin-bottom: 0; }
+
+  .dim-input-wrap {
+    position: relative;
+  }
+
+  .dim-input-wrap input {
+    padding-right: 32px;
+  }
+
+  .dim-input-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--muted);
+    pointer-events: none;
+    font-family: var(--mono);
+  }
+
+  .dim-diagram {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">WellSpec <span>// </span>v1.0</div>
+  <div class="header-title">Wet Well Pump Station Sizing Tool</div>
+  <button class="print-btn" onclick="window.print()">⎙ Print Report</button>
+</header>
+
+<main>
+  <!-- LEFT COLUMN -->
+  <div style="display:flex; flex-direction:column; gap:20px;">
+
+    <!-- PROJECT INFO PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="step" style="background:var(--accent2);">ℹ</div>
+        <h2>Project Info</h2>
+      </div>
+      <div class="panel-body">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="field-group" style="margin-bottom:0">
+            <div class="field-label">Project Name</div>
+            <input type="text" id="projectName" placeholder="e.g. Main St. Station" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:12px; padding:8px 12px; border-radius:4px; outline:none;">
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <div class="field-label">Pump Name / ID</div>
+            <input type="text" id="pumpName" placeholder="e.g. Pump 1A" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:12px; padding:8px 12px; border-radius:4px; outline:none;">
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <div class="field-label">Engineer</div>
+            <input type="text" id="engineerName" placeholder="e.g. J. Smith, PE" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:12px; padding:8px 12px; border-radius:4px; outline:none;">
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <div class="field-label">Date</div>
+            <input type="date" id="projectDate" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:12px; padding:8px 12px; border-radius:4px; outline:none; color-scheme:dark;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESIGN CRITERIA PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="step">1</div>
+        <h2>Design Criteria — Inputs</h2>
+      </div>
+      <div class="panel-body">
+
+        <div class="field-group">
+          <div class="field-label">Peak Design Flow <span class="unit">gpm</span></div>
+          <input type="number" id="flowGpm" value="1200" min="0" step="1" oninput="calc()" placeholder="Required">
+          <div class="field-error" id="flowGpm-err"><span>⚠</span> Required</div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">Number of Pumps</div>
+          <input type="number" id="numPumps" value="1" min="1" step="1" oninput="calc()" placeholder="Required">
+          <div class="field-error" id="numPumps-err"><span>⚠</span> Required</div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">Pump Inlet Diameter <span class="unit">inches</span></div>
+          <input type="number" id="inletDiam" value="8" min="0.1" step="0.5" oninput="calc()" placeholder="Required">
+          <div class="field-error" id="inletDiam-err"><span>⚠</span> Required</div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">Minimum Cycle Time <span class="unit">min</span></div>
+          <input type="number" id="cycleTime" value="5" min="1" step="1" oninput="calc()" placeholder="Required">
+          <div class="note-text">Recommended: 8–10 min</div>
+          <div class="field-error" id="cycleTime-err"><span>⚠</span> Required</div>
+          <div id="cycleTime-warn" style="display:none; font-family:var(--mono); font-size:10px; margin-top:5px; padding:6px 10px; border-radius:4px; line-height:1.5;"></div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="field-group">
+          <div class="field-label">Structure Type</div>
+          <div class="radio-group">
+            <div class="radio-opt">
+              <input type="radio" name="shape" id="shapeRound" value="round" checked onchange="toggleDim2(); calc();">
+              <label for="shapeRound">⬤ Round</label>
+            </div>
+            <div class="radio-opt">
+              <input type="radio" name="shape" id="shapeRect" value="rect" onchange="toggleDim2(); calc();">
+              <label for="shapeRect">▬ Rectangular</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dimension section -->
+        <div class="dim-section">
+          <div class="dim-section-title">
+            <span>⬡</span> <span id="dimSectionTitle">Structure Dimensions</span>
+          </div>
+
+          <!-- Mini shape diagram -->
+          <div class="dim-diagram">
+            <svg id="shapeDiagram" width="260" height="130" viewBox="0 0 260 130"></svg>
+          </div>
+          <!-- Print-only dimension summary -->
+          <div id="dimPrintSummary" style="display:none; font-family:var(--mono); font-size:11px; color:#475569; text-align:center; margin-top:6px; padding:6px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;"></div>
+
+          <div class="dim-fields" id="dimFields">
+            <div class="field-group">
+              <div class="field-label" id="dim1Label">Diameter <span class="unit">ft</span></div>
+              <div class="dim-input-wrap">
+                <input type="number" id="dim1" value="6" min="0.1" step="0.5" oninput="calc()" placeholder="Required">
+                <span class="dim-input-icon">ft</span>
+              </div>
+              <div class="field-error" id="dim1-err"><span>⚠</span> Required</div>
+            </div>
+            <div class="field-group" id="dim2Group" style="display:none">
+              <div class="field-label">Width <span class="unit">ft</span></div>
+              <div class="dim-input-wrap">
+                <input type="number" id="dim2" value="" min="0.1" step="0.5" oninput="calc()" placeholder="Required">
+                <span class="dim-input-icon">ft</span>
+              </div>
+              <div class="field-error" id="dim2-err"><span>⚠</span> Required</div>
+            </div>
+          </div>
+
+          <hr class="divider">
+
+          <div class="field-group" style="margin-bottom:0;">
+            <div class="field-label">Well Depth <span class="unit">ft</span></div>
+            <div class="dim-input-wrap">
+              <input type="number" id="wellDepth" min="0.1" step="0.5" oninput="calc()" placeholder="Optional">
+              <span class="dim-input-icon">ft</span>
+            </div>
+            <div id="wellDepth-warn" style="display:none; font-family:var(--mono); font-size:10px; margin-top:5px; padding:6px 10px; border-radius:4px; line-height:1.5;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- end left column -->
+
+  <!-- RESULTS PANEL -->
+  <div style="display:flex; flex-direction:column; gap:20px;">
+
+    <!-- Key outputs -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="step">2</div>
+        <h2>Key Results</h2>
+      </div>
+      <div class="panel-body">
+        <div class="incomplete-banner" id="incompleteBanner">
+          <span class="ban-icon">⚠</span>
+          <span id="bannerMsg">Please complete all required fields to see results.</span>
+        </div>
+        <div class="summary-cards">
+          <div class="sum-card">
+            <div class="sum-label">Startup Depth</div>
+            <div class="sum-value" id="res-startup">—</div>
+            <div class="sum-unit">feet</div>
+          </div>
+          <div class="sum-card shutoff">
+            <div class="sum-label">Shutoff Depth</div>
+            <div class="sum-value" id="res-shutoff">—</div>
+            <div class="sum-unit">feet</div>
+          </div>
+        </div>
+
+        <div class="results-grid">
+          <div class="result-card">
+            <div class="result-label">Flow per pump</div>
+            <div class="result-value"><span id="res-flowPerPump">—</span><span class="result-unit">cfs</span></div>
+            <div class="result-sub" id="res-flowPerPumpGpm">— gpm</div>
+          </div>
+          <div class="result-card">
+            <div class="result-label">Station Area</div>
+            <div class="result-value"><span id="res-area">—</span><span class="result-unit">ft²</span></div>
+          </div>
+          <div class="result-card">
+            <div class="result-label">Min. Storage Volume</div>
+            <div class="result-value"><span id="res-vmin">—</span><span class="result-unit">ft³</span></div>
+            <div class="result-sub" id="res-vminGal">— gal</div>
+          </div>
+          <div class="result-card">
+            <div class="result-label">Min. Storage Depth</div>
+            <div class="result-value"><span id="res-hmin">—</span><span class="result-unit">ft</span></div>
+          </div>
+          <div class="result-card">
+            <div class="result-label">Fluid Velocity</div>
+            <div class="result-value"><span id="res-vel">—</span><span class="result-unit">fps</span></div>
+            <div id="vel-badge" class="velocity-badge ok">● OK</div>
+          </div>
+          <div class="result-card highlight">
+            <div class="result-label">Froude Number (F<sub>D</sub>)</div>
+            <div class="result-value"><span id="res-froude">—</span></div>
+            <div class="result-sub">Min. Submergence input</div>
+          </div>
+        </div>
+
+        <!-- Diagram -->
+        <div class="diagram-wrap" style="flex-direction:column; align-items:center; gap:4px;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#64748b; letter-spacing:0.08em; text-transform:uppercase;">Wet Well Cross Section</div>
+          <svg id="wellDiagram" width="340" height="300" viewBox="0 0 340 300"></svg>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Calculation breakdown -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="step">3</div>
+        <h2>Calculation Breakdown</h2>
+      </div>
+      <div class="panel-body">
+
+        <div class="calc-title">1 — Minimum Storage Volume&nbsp; <span class="calc-formula">V<sub>MIN</sub> = (T<sub>MIN</sub> × Q<sub>OUT</sub>) / 4</span></div>
+        <div class="calc-row"><span class="calc-name">Minimum Cycle Time (T<sub>MIN</sub>)</span><span class="calc-val" id="cb-tmin">—</span></div>
+        <div class="calc-row"><span class="calc-name">Total Pump Flow (Q<sub>OUT</sub>)</span><span class="calc-val" id="cb-qout">—</span></div>
+        <div class="calc-row"><span class="calc-name">V<sub>MIN</sub></span><span class="calc-val" id="cb-vmin">—</span></div>
+
+        <div class="calc-section">
+          <div class="calc-title">2 — Minimum Storage Depth&nbsp; <span class="calc-formula">H<sub>MIN</sub> = V<sub>MIN</sub> / A<sub>station</sub></span></div>
+          <div class="calc-row"><span class="calc-name">Station Area (A<sub>station</sub>)</span><span class="calc-val" id="cb-area">—</span></div>
+          <div class="calc-row"><span class="calc-name">V<sub>MIN</sub></span><span class="calc-val" id="cb-vmin2">—</span></div>
+          <div class="calc-row"><span class="calc-name">H<sub>MIN</sub></span><span class="calc-val" id="cb-hmin">—</span></div>
+        </div>
+
+        <div class="calc-section">
+          <div class="calc-title">3a — Fluid Velocity&nbsp; <span class="calc-formula">v = Q / A<sub>pipe</sub></span></div>
+          <div class="calc-row"><span class="calc-name">Inlet Diameter (D)</span><span class="calc-val" id="cb-diam">—</span></div>
+          <div class="calc-row"><span class="calc-name">Pipe Area (A<sub>pipe</sub>)</span><span class="calc-val" id="cb-apipe">—</span></div>
+          <div class="calc-row"><span class="calc-name">Flow per pump (Q)</span><span class="calc-val" id="cb-qpump">—</span></div>
+          <div class="calc-row"><span class="calc-name">Velocity (v)</span><span class="calc-val" id="cb-vel">—</span></div>
+        </div>
+
+        <div class="calc-section">
+          <div class="calc-title">3b — Froude Number&nbsp; <span class="calc-formula">F<sub>D</sub> = v / (g · D<sup>0.5</sup>)</span></div>
+          <div class="calc-row"><span class="calc-name">Gravity (g)</span><span class="calc-val">32.2 ft/s²</span></div>
+          <div class="calc-row"><span class="calc-name">F<sub>D</sub></span><span class="calc-val" id="cb-fd">—</span></div>
+        </div>
+
+        <div class="calc-section">
+          <div class="calc-title">3c — Min. Submergence (Shutoff)&nbsp; <span class="calc-formula">H<sub>X</sub> = D(1 + 2.3·F<sub>D</sub>)</span></div>
+          <div class="calc-row"><span class="calc-name">H<sub>X</sub> (Shutoff Depth)</span><span class="calc-val" id="cb-hx">—</span></div>
+        </div>
+
+        <div class="calc-section">
+          <div class="calc-title">4 — Startup Depth</div>
+          <div class="calc-row"><span class="calc-name">Startup = H<sub>X</sub> + H<sub>MIN</sub></span><span class="calc-val" id="cb-startup">—</span></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const G = 32.2;
+
+function fmt(v, d=2) { return isFinite(v) ? v.toFixed(d) : '—'; }
+
+function setInvalid(id, msg) {
+  const el = document.getElementById(id);
+  const err = document.getElementById(id + '-err');
+  if (el) el.classList.add('invalid');
+  if (err) { err.querySelector('span:last-child') && (err.querySelector('span + span') ? err.querySelector('span + span').textContent = ' ' + (msg||'Required') : null); err.classList.add('show'); }
+}
+
+function setValid(id) {
+  const el = document.getElementById(id);
+  const err = document.getElementById(id + '-err');
+  if (el) el.classList.remove('invalid');
+  if (err) err.classList.remove('show');
+}
+
+function toggleDim2() {
+  const round = document.getElementById('shapeRound').checked;
+  const dim2Group = document.getElementById('dim2Group');
+  dim2Group.style.display = round ? 'none' : 'block';
+  document.getElementById('dim1Label').innerHTML = round
+    ? 'Diameter <span class="unit">ft</span>'
+    : 'Length <span class="unit">ft</span>';
+  document.getElementById('dimSectionTitle').textContent = round
+    ? 'Round Structure — Diameter'
+    : 'Rectangular Structure — Length & Width';
+  drawShapeDiagram(round);
+}
+
+function drawShapeDiagram(isRound) {
+  const svg = document.getElementById('shapeDiagram');
+  const dim1 = parseFloat(document.getElementById('dim1').value) || 0;
+  const dim2 = parseFloat(document.getElementById('dim2').value) || 0;
+  const W = 260, H = 130;
+  const cx = W/2, cy = H/2 + 8;
+
+  // Update print summary
+  const summary = document.getElementById('dimPrintSummary');
+  if (isRound) {
+    summary.textContent = 'Round — Diameter: ' + (dim1 > 0 ? dim1.toFixed(2) + ' ft' : 'not entered');
+  } else {
+    summary.textContent = 'Rectangular — Length: ' + (dim1 > 0 ? dim1.toFixed(2) + ' ft' : 'not entered') +
+      '  ×  Width: ' + (dim2 > 0 ? dim2.toFixed(2) + ' ft' : 'not entered');
+  }
+
+  if (isRound) {
+    const r = 44;
+    const label = dim1 > 0 ? dim1.toFixed(1)+' ft' : '? ft';
+    svg.innerHTML = `
+      <!-- Circle -->
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="rgba(59,130,246,0.13)" stroke="#3b82f6" stroke-width="2"/>
+      <!-- Diameter line -->
+      <line x1="${cx-r+3}" y1="${cy}" x2="${cx+r-3}" y2="${cy}" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <!-- Arrow tips -->
+      <polygon points="${cx-r+3},${cy} ${cx-r+10},${cy-3} ${cx-r+10},${cy+3}" fill="#22d3ee"/>
+      <polygon points="${cx+r-3},${cy} ${cx+r-10},${cy-3} ${cx+r-10},${cy+3}" fill="#22d3ee"/>
+      <!-- Ø symbol above line -->
+      <text x="${cx}" y="${cy-8}" text-anchor="middle" fill="#22d3ee" font-size="12" font-weight="600" font-family="IBM Plex Mono">Ø</text>
+      <!-- Value below line -->
+      <text x="${cx}" y="${cy+20}" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600" font-family="IBM Plex Mono" class="dim-val-text">${label}</text>
+      <!-- Label at bottom -->
+      <text x="${cx}" y="${H-4}" text-anchor="middle" fill="#64748b" font-size="9" font-family="IBM Plex Mono" letter-spacing="0.06em">DIAMETER</text>
+    `;
+  } else {
+    const bw = 90, bh = 52;
+    const bx = cx - bw/2 - 10, by = cy - bh/2;
+    const lLabel = dim1 > 0 ? dim1.toFixed(1)+' ft' : '? ft';
+    const wLabel = dim2 > 0 ? dim2.toFixed(1)+' ft' : '? ft';
+    svg.innerHTML = `
+      <!-- Rectangle -->
+      <rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="rgba(59,130,246,0.13)" stroke="#3b82f6" stroke-width="2" rx="2"/>
+      <!-- Length annotation (top) -->
+      <line x1="${bx}" y1="${by-10}" x2="${bx+bw}" y2="${by-10}" stroke="#22d3ee" stroke-width="1.5"/>
+      <polygon points="${bx},${by-10} ${bx+7},${by-13} ${bx+7},${by-7}" fill="#22d3ee"/>
+      <polygon points="${bx+bw},${by-10} ${bx+bw-7},${by-13} ${bx+bw-7},${by-7}" fill="#22d3ee"/>
+      <text x="${bx+bw/2}" y="${by-15}" text-anchor="middle" fill="#22d3ee" font-size="12" font-weight="600" font-family="IBM Plex Mono">L: ${lLabel}</text>
+      <!-- Width annotation (right) -->
+      <line x1="${bx+bw+10}" y1="${by}" x2="${bx+bw+10}" y2="${by+bh}" stroke="#f59e0b" stroke-width="1.5"/>
+      <polygon points="${bx+bw+10},${by} ${bx+bw+7},${by+7} ${bx+bw+13},${by+7}" fill="#f59e0b"/>
+      <polygon points="${bx+bw+10},${by+bh} ${bx+bw+7},${by+bh-7} ${bx+bw+13},${by+bh-7}" fill="#f59e0b"/>
+      <text x="${bx+bw+14}" y="${cy+5}" fill="#f59e0b" font-size="12" font-weight="600" font-family="IBM Plex Mono">W: ${wLabel}</text>
+    `;
+  }
+}
+
+function calc() {
+  const flowGpm = parseFloat(document.getElementById('flowGpm').value);
+  const numPumps = parseInt(document.getElementById('numPumps').value);
+  const inletInch = parseFloat(document.getElementById('inletDiam').value);
+  const cycleMin = parseFloat(document.getElementById('cycleTime').value);
+  const dim1 = parseFloat(document.getElementById('dim1').value);
+  const dim2Raw = document.getElementById('dim2').value;
+  const isRound = document.getElementById('shapeRound').checked;
+  const dim2 = parseFloat(dim2Raw);
+
+  // Update shape diagram live
+  drawShapeDiagram(isRound);
+
+  // Validate
+  let missing = [];
+  const v = (id, val, label) => {
+    if (!val || isNaN(val) || val <= 0) { setInvalid(id); missing.push(label); return false; }
+    setValid(id); return true;
+  };
+
+  v('flowGpm', flowGpm, 'Peak Design Flow');
+  v('numPumps', numPumps, 'Number of Pumps');
+  v('inletDiam', inletInch, 'Inlet Diameter');
+  v('cycleTime', cycleMin, 'Minimum Cycle Time');
+  v('dim1', dim1, isRound ? 'Diameter' : 'Length');
+  if (!isRound) v('dim2', dim2, 'Width');
+  else setValid('dim2');
+
+  const banner = document.getElementById('incompleteBanner');
+  const bannerMsg = document.getElementById('bannerMsg');
+  if (missing.length > 0) {
+    banner.classList.add('show');
+    bannerMsg.textContent = `Missing required fields: ${missing.join(', ')}`;
+    clearResults();
+    return;
+  }
+  banner.classList.remove('show');
+
+  // Well depth input (read early, used after calcs)
+  const wellDepth = parseFloat(document.getElementById('wellDepth').value);
+
+  // Cycle time warning (doesn't depend on calc results)
+  const ctWarn = document.getElementById('cycleTime-warn');
+  const ctInput = document.getElementById('cycleTime');
+  if (cycleMin < 8) {
+    ctWarn.style.display = 'block';
+    ctWarn.style.background = 'rgba(245,158,11,0.10)';
+    ctWarn.style.border = '1px solid rgba(245,158,11,0.35)';
+    ctWarn.style.color = '#d97706';
+    ctWarn.innerHTML = '⚠ <strong>' + cycleMin + ' min</strong> is below the recommended minimum of 8 min. Short cycle times increase pump wear.';
+    ctInput.style.borderColor = 'var(--warn)';
+  } else {
+    ctWarn.style.display = 'none';
+    ctInput.style.borderColor = '';
+  }
+
+  // --- Calculations ---
+  const flowCfs = flowGpm / 448.831;
+  const pumpCount = Math.max(1, numPumps);
+  const flowPerPumpCfs = flowCfs / pumpCount;
+  const flowPerPumpGpm = flowGpm / pumpCount;
+  const inletFt = inletInch / 12;
+
+  let aStation = isRound
+    ? Math.PI * Math.pow(dim1 / 2, 2)
+    : dim1 * dim2;
+
+  const vMinGal = (cycleMin * flowGpm) / 4;
+  const vMinFt3 = vMinGal / 7.48052;
+  const hMin = vMinFt3 / aStation;
+  const aPipe = Math.PI * Math.pow(inletFt / 2, 2);
+  const velocity = flowPerPumpCfs / aPipe;
+  const fD = velocity / (G * Math.sqrt(inletFt));
+  const hX = inletFt * (1 + 2.3 * fD);
+  const startup = hX + hMin;
+
+  // Well depth check — now that startup is known
+  const wdWarn = document.getElementById('wellDepth-warn');
+  const wdInput = document.getElementById('wellDepth');
+  if (wellDepth && !isNaN(wellDepth) && wellDepth > 0) {
+    if (startup > wellDepth) {
+      wdWarn.style.display = 'block';
+      wdWarn.style.background = 'rgba(239,68,68,0.10)';
+      wdWarn.style.border = '1px solid rgba(239,68,68,0.35)';
+      wdWarn.style.color = '#ef4444';
+      wdWarn.innerHTML = '⚠ Startup depth <strong>' + fmt(startup) + ' ft</strong> exceeds well depth of <strong>' + fmt(wellDepth) + ' ft</strong>. Well is too shallow.';
+      wdInput.style.borderColor = 'var(--danger)';
+    } else {
+      const margin = wellDepth - startup;
+      wdWarn.style.display = 'block';
+      wdWarn.style.background = 'rgba(16,185,129,0.08)';
+      wdWarn.style.border = '1px solid rgba(16,185,129,0.3)';
+      wdWarn.style.color = '#10b981';
+      wdWarn.innerHTML = '✓ Startup depth fits within well. <strong>' + fmt(margin) + ' ft</strong> of freeboard remaining.';
+      wdInput.style.borderColor = 'var(--ok)';
+    }
+  } else {
+    wdWarn.style.display = 'none';
+    wdInput.style.borderColor = '';
+  }
+
+  // --- UPDATE UI ---
+  document.getElementById('res-startup').textContent = fmt(startup);
+  document.getElementById('res-shutoff').textContent = fmt(hX);
+  document.getElementById('res-flowPerPump').textContent = fmt(flowPerPumpCfs, 3);
+  document.getElementById('res-flowPerPumpGpm').textContent = fmt(flowPerPumpGpm, 1) + ' gpm';
+  document.getElementById('res-area').textContent = fmt(aStation);
+  document.getElementById('res-vmin').textContent = fmt(vMinFt3);
+  document.getElementById('res-vminGal').textContent = fmt(vMinGal, 1) + ' gal';
+  document.getElementById('res-hmin').textContent = fmt(hMin);
+  document.getElementById('res-vel').textContent = fmt(velocity, 3);
+  document.getElementById('res-froude').textContent = fmt(fD, 3);
+
+  const vBadge = document.getElementById('vel-badge');
+  if (velocity < 4) { vBadge.className = 'velocity-badge warn'; vBadge.textContent = '▼ Below 4 fps'; }
+  else if (velocity > 7) { vBadge.className = 'velocity-badge warn'; vBadge.textContent = '▲ Above 7 fps'; }
+  else { vBadge.className = 'velocity-badge ok'; vBadge.textContent = '● 4–7 fps ✓'; }
+
+  document.getElementById('cb-tmin').textContent = fmt(cycleMin, 1) + ' min';
+  document.getElementById('cb-qout').textContent = fmt(flowGpm, 1) + ' gpm';
+  document.getElementById('cb-vmin').textContent = fmt(vMinFt3) + ' ft³ (' + fmt(vMinGal, 1) + ' gal)';
+  document.getElementById('cb-area').textContent = fmt(aStation) + ' ft²';
+  document.getElementById('cb-vmin2').textContent = fmt(vMinFt3) + ' ft³';
+  document.getElementById('cb-hmin').textContent = fmt(hMin) + ' ft';
+  document.getElementById('cb-diam').textContent = fmt(inletFt, 3) + ' ft (' + fmt(inletInch, 1) + ' in)';
+  document.getElementById('cb-apipe').textContent = fmt(aPipe, 4) + ' ft²';
+  document.getElementById('cb-qpump').textContent = fmt(flowPerPumpCfs, 4) + ' cfs';
+  document.getElementById('cb-vel').textContent = fmt(velocity, 3) + ' fps';
+  document.getElementById('cb-fd').textContent = fmt(fD, 4);
+  document.getElementById('cb-hx').textContent = fmt(hX) + ' ft';
+  document.getElementById('cb-startup').textContent = fmt(startup) + ' ft';
+
+  drawDiagram(hX, hMin, startup, dim1, isRound, wellDepth || 0);
+}
+
+function clearResults() {
+  const ids = ['res-startup','res-shutoff','res-flowPerPump','res-flowPerPumpGpm','res-area',
+    'res-vmin','res-vminGal','res-hmin','res-vel','res-froude',
+    'cb-tmin','cb-qout','cb-vmin','cb-area','cb-vmin2','cb-hmin','cb-diam',
+    'cb-apipe','cb-qpump','cb-vel','cb-fd','cb-hx','cb-startup'];
+  ids.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
+  drawDiagram(0, 0, 0, 0, true, 0);
+}
+
+function drawDiagram(hx, hmin, startup, dim1, isRound, wellDepth) {
+  const svg = document.getElementById('wellDiagram');
+  const W = 340, H = 300;
+  const wellW = 120;
+  const wellH = 210;
+  const wellX = (W - wellW) / 2 + 10;
+  const wellY = 45;
+  const wellBottom = wellY + wellH;
+
+  // Scale: use well depth if provided, otherwise startup * 1.2
+  const hasDepth = wellDepth && wellDepth > 0;
+  const totalDepth = hasDepth ? Math.max(wellDepth, startup) * 1.1 : startup * 1.2;
+  const scale = wellH / totalDepth;
+  const hxPx = hx * scale;
+  const startupPx = startup * scale;
+  const wellDepthPx = hasDepth ? wellDepth * scale : 0;
+
+  const hxColor = '#ef4444';
+  const startupColor = '#22d3ee';
+  const submColor = '#f59e0b';
+  const freeboardColor = startup > wellDepth && hasDepth ? '#ef4444' : '#10b981';
+  const wallColor = '#2a3050';
+  const textColor = '#94a3b8';
+
+  // Well top — if depth given, show it; otherwise use full wellH
+  const wellTopY = hasDepth ? wellBottom - wellDepthPx : wellY;
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(59,130,246,0.5)"/>
+        <stop offset="100%" stop-color="rgba(30,64,175,0.7)"/>
+      </linearGradient>
+      <linearGradient id="submGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(245,158,11,0.4)"/>
+        <stop offset="100%" stop-color="rgba(245,158,11,0.15)"/>
+      </linearGradient>
+      <linearGradient id="freeboardGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(16,185,129,0.0)"/>
+        <stop offset="100%" stop-color="rgba(16,185,129,0.15)"/>
+      </linearGradient>
+      <linearGradient id="overflowGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(239,68,68,0.25)"/>
+        <stop offset="100%" stop-color="rgba(239,68,68,0.05)"/>
+      </linearGradient>
+    </defs>
+
+    <!-- Well walls — height based on depth if provided -->
+    <rect x="${wellX}" y="${wellTopY}" width="4" height="${wellBottom - wellTopY}" fill="${wallColor}" rx="2"/>
+    <rect x="${wellX + wellW - 4}" y="${wellTopY}" width="4" height="${wellBottom - wellTopY}" fill="${wallColor}" rx="2"/>
+    <rect x="${wellX}" y="${wellBottom}" width="${wellW}" height="4" fill="${wallColor}" rx="2"/>
+
+    <!-- Well top cap -->
+    ${hasDepth ? `<rect x="${wellX}" y="${wellTopY - 4}" width="${wellW}" height="4" fill="${wallColor}" rx="2"/>` : ''}
+
+    <!-- Freeboard zone (above startup to top of well) -->
+    ${hasDepth && wellDepthPx > startupPx ? `
+      <rect x="${wellX + 4}" y="${wellTopY}" width="${wellW - 8}" height="${wellDepthPx - startupPx}" fill="url(#freeboardGrad)"/>
+    ` : ''}
+
+    <!-- Overflow zone (startup exceeds well depth) -->
+    ${hasDepth && startupPx > wellDepthPx ? `
+      <rect x="${wellX + 4}" y="${wellBottom - startupPx}" width="${wellW - 8}" height="${startupPx - wellDepthPx}" fill="url(#overflowGrad)"/>
+    ` : ''}
+
+    <!-- Dim label -->
+    <text x="${wellX + wellW/2}" y="${wellTopY - 12}" text-anchor="middle" fill="${textColor}" font-size="10" font-family="IBM Plex Mono">${isRound ? 'Ø ' : ''}${dim1 > 0 ? dim1.toFixed(1) : '?'} ft</text>
+    <line x1="${wellX + 4}" y1="${wellTopY - 6}" x2="${wellX + wellW - 4}" y2="${wellTopY - 6}" stroke="#475569" stroke-width="0.8"/>
+    <line x1="${wellX + 4}" y1="${wellTopY - 9}" x2="${wellX + 4}" y2="${wellTopY - 3}" stroke="#475569" stroke-width="0.8"/>
+    <line x1="${wellX + wellW - 4}" y1="${wellTopY - 9}" x2="${wellX + wellW - 4}" y2="${wellTopY - 3}" stroke="#475569" stroke-width="0.8"/>
+
+    <!-- Min submergence zone (HX) — amber fill at bottom -->
+    ${hxPx > 0 ? `<rect x="${wellX + 4}" y="${wellBottom - hxPx}" width="${wellW - 8}" height="${hxPx}" fill="url(#submGrad)"/>` : ''}
+
+    <!-- Water storage fill (above HX up to startup) -->
+    ${startupPx > hxPx ? `<rect x="${wellX + 4}" y="${wellBottom - startupPx}" width="${wellW - 8}" height="${startupPx - hxPx}" fill="url(#waterGrad)" opacity="0.85"/>` : ''}
+
+    <!-- Well depth line & label (right side) -->
+    ${hasDepth ? `
+      <line x1="${wellX + wellW + 6}" y1="${wellTopY}" x2="${wellX + wellW + 6}" y2="${wellBottom}" stroke="${freeboardColor}" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="${wellX + wellW + 24}" y="${wellTopY + (wellBottom - wellTopY)/2 + 4}" fill="${freeboardColor}" font-size="9" font-family="IBM Plex Mono">DEPTH</text>
+      <text x="${wellX + wellW + 24}" y="${wellTopY + (wellBottom - wellTopY)/2 + 15}" fill="${freeboardColor}" font-size="9" font-family="IBM Plex Mono">${wellDepth.toFixed(2)} ft</text>
+    ` : ''}
+
+    <!-- Shutoff line (HX) -->
+    <line x1="${wellX - 38}" y1="${wellBottom - hxPx}" x2="${wellX + wellW + 20}" y2="${wellBottom - hxPx}" stroke="${hxColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <circle cx="${wellX + wellW/2}" cy="${wellBottom - hxPx}" r="3" fill="${hxColor}"/>
+    <text x="${wellX + wellW + 24}" y="${wellBottom - hxPx + 4}" fill="${hxColor}" font-size="9" font-family="IBM Plex Mono">SHUTOFF</text>
+    <text x="${wellX + wellW + 24}" y="${wellBottom - hxPx + 15}" fill="${hxColor}" font-size="9" font-family="IBM Plex Mono">${isFinite(hx) ? hx.toFixed(2) : '—'} ft</text>
+
+    <!-- Startup line -->
+    <line x1="${wellX - 38}" y1="${wellBottom - startupPx}" x2="${wellX + wellW + 20}" y2="${wellBottom - startupPx}" stroke="${startupColor}" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <circle cx="${wellX + wellW/2}" cy="${wellBottom - startupPx}" r="3" fill="${startupColor}"/>
+    <text x="${wellX + wellW + 24}" y="${wellBottom - startupPx + 4}" fill="${startupColor}" font-size="9" font-family="IBM Plex Mono">STARTUP</text>
+    <text x="${wellX + wellW + 24}" y="${wellBottom - startupPx + 15}" fill="${startupColor}" font-size="9" font-family="IBM Plex Mono">${isFinite(startup) ? startup.toFixed(2) : '—'} ft</text>
+
+    <!-- Left brace: HX (min submergence) -->
+    <line x1="${wellX - 12}" y1="${wellBottom}" x2="${wellX - 12}" y2="${wellBottom - hxPx}" stroke="${submColor}" stroke-width="1.2"/>
+    <line x1="${wellX - 9}" y1="${wellBottom}" x2="${wellX - 15}" y2="${wellBottom}" stroke="${submColor}" stroke-width="1.2"/>
+    <line x1="${wellX - 9}" y1="${wellBottom - hxPx}" x2="${wellX - 15}" y2="${wellBottom - hxPx}" stroke="${submColor}" stroke-width="1.2"/>
+    <text x="${wellX - 18}" y="${wellBottom - hxPx/2 + 3}" text-anchor="end" fill="${submColor}" font-size="8" font-family="IBM Plex Mono">HX</text>
+
+    <!-- Left brace: HMIN (storage depth) -->
+    <line x1="${wellX - 26}" y1="${wellBottom - hxPx}" x2="${wellX - 26}" y2="${wellBottom - startupPx}" stroke="#64748b" stroke-width="1.2"/>
+    <line x1="${wellX - 23}" y1="${wellBottom - hxPx}" x2="${wellX - 29}" y2="${wellBottom - hxPx}" stroke="#64748b" stroke-width="1.2"/>
+    <line x1="${wellX - 23}" y1="${wellBottom - startupPx}" x2="${wellX - 29}" y2="${wellBottom - startupPx}" stroke="#64748b" stroke-width="1.2"/>
+    <text x="${wellX - 32}" y="${wellBottom - (hxPx + startupPx)/2 + 3}" text-anchor="end" fill="#64748b" font-size="8" font-family="IBM Plex Mono">HMIN</text>
+
+    <!-- Bottom label -->
+    <text x="${wellX + wellW/2}" y="${wellBottom + 18}" text-anchor="middle" fill="${textColor}" font-size="9" font-family="IBM Plex Mono">PUMP INLET / SUMP</text>
+  `;
+}
+
+// Init
+toggleDim2();
+calc();
+</script>
+</body>
+</html>
