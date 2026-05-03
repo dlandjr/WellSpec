@@ -664,13 +664,12 @@ function calc() {
   let pipeCrown = 0, pipeInvert = 0, pipeRadFt = 0;
   if (usePipe && pipeDiam > 0 && pipeLen > 0) {
     pipeRadFt   = (pipeDiam / 12) / 2;
-    pipeInvert  = 0;                          // invert at well floor
+    pipeInvert  = hX;                         // pipe invert sits at shutoff depth
     pipeCrown   = pipeInvert + 2 * pipeRadFt; // crown elevation
     // Full pipe volume
     const vPipeTotalFt3 = Math.PI * pipeRadFt * pipeRadFt * pipeLen;
-    // Only volume ABOVE H_X counts — pipe below H_X can never be drawn down
-    // Integrate chord area from max(hX, pipeInvert) to pipeCrown
-    const zLow  = Math.max(hX, pipeInvert);
+    // Full pipe volume above H_X (invert is at hX, so entire pipe is usable)
+    const zLow  = pipeInvert;
     const zHigh = pipeCrown;
     if (zLow < zHigh) {
       // Numerical integration of chord width × pipeLen over [zLow, zHigh]
@@ -881,7 +880,7 @@ function calc() {
 
   // Draw diagrams
   drawDiagram(hX, hMinBand, levels, dim1, isRound, wellDepth || 0);
-  drawStorageCurve(hX, levels, aStation, isRound, dim1, dim1, usePipe ? pipeDiam : 0, usePipe ? pipeLen : 0, 0, wellDepth || 0);
+  drawStorageCurve(hX, levels, aStation, isRound, dim1, dim1, usePipe ? pipeDiam : 0, usePipe ? pipeLen : 0, usePipe ? hX : 0, wellDepth || 0);
 }
 
 function clearResults() {
